@@ -1,0 +1,677 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:barcode_scan2/barcode_scan2.dart';
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+
+void main() {
+  runApp(MyApp());
+}
+
+class Book {
+  final String title;
+  final String author;
+  final String imageUrl;
+  final double rating;
+  final String description;
+  final String isbn;
+  final String genre;
+  final double price;
+  final String publisher;
+  final String publicationYear;
+  double userRating;
+  List<Review> reviews;
+  String? localImagePath;
+
+  Book({
+    required this.title,
+    required this.author,
+    required this.imageUrl,
+    required this.rating,
+    required this.description,
+    required this.isbn,
+    required this.genre,
+    required this.price,
+    required this.publisher,
+    required this.publicationYear,
+    this.userRating = 0.0,
+    required this.reviews,
+    this.localImagePath,
+  });
+
+  factory Book.fromJson(Map<String, dynamic> json) {
+    return Book(
+      title: json['title'] ?? 'No title available',
+      author: json['author'] ?? 'No author available',
+      imageUrl: json['image'] ?? '',
+      rating: (json['rating'] ?? 0.0).toDouble(),
+      description: json['description'] ?? 'No description available',
+      isbn: json['isbn'] ?? '',
+      genre: json['genre'] ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      publisher: json['publisher'] ?? 'No publisher available',
+      publicationYear: json['publicationYear'] ?? 'No year available',
+      userRating: json['userRating'] ?? 0.0,
+      reviews: (json['reviews'] as List<dynamic>?)
+          ?.map((e) => Review.fromJson(e as Map<String, dynamic>))
+          .toList() ?? [],
+      localImagePath: json['localImagePath'],
+    );
+  }
+}
+
+
+class Review {
+  final String text;
+  final double rating;
+
+  Review({
+    required this.text,
+    required this.rating,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'text': text,
+    'rating': rating,
+  };
+
+  factory Review.fromJson(Map<String, dynamic> json) {
+    return Review(
+      text: json['text'],
+      rating: json['rating'],
+    );
+  }
+}
+
+class BookProvider with ChangeNotifier {
+  Book? _book;
+  List<Book> _books = [];
+
+  Book? get book => _book;
+  List<Book> get books => _books;
+
+  Future<void> fetchBook(String isbn) async {
+    Map<String, dynamic> responseJson = {
+      '9786297665122': {
+        'title': 'Bayang Sofea',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9786297665122.jpeg',
+        'description': 'Sofea, seorang pekerja berdedikasi di syarikat RICE, berusaha mencapai kejayaan melalui usaha sendiri. Namun, pertemuannya dengan Danny, seorang atlet tinju, mengingatkannya kepada sebuah organisasi misteri yang pernah membantunya dengan harga tinggi. Kehidupannya berubah apabila seorang lelaki dari organisasi itu muncul dan menuntut janji lama, mengancam nyawa dirinya dan orang tersayang. Dihantui mimpi ngeri dan keterdesakan, Sofea harus memilih antara mematuhi permintaan mereka atau menanggung akibatnya.',
+        'isbn': '9786297665122',
+        'genre': 'Fiction',
+        'price': 34.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2024',
+
+      },
+      '9789672459682': {
+        'title': 'Penulis Jalanan',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789672459682.jpeg',
+        'description': 'Iskandar melupakan impian menulisnya akibat kekecewaan, menumpukan pada pengajian seni bina dan berjaya menjadi arkitek di luar negara. Namun, kembali ke tanah air, dia harus bermula dari kosong dan menghadapi pelbagai ujian hingga berhutang besar. Dalam kesulitan, Iskandar belajar untuk tidak mengalah, menyuburkan kembali impiannya. "Penulis Jalanan" menyelami perjalanan Iskandar selepas universiti, menunjukkan kehidupan bekerja dan berdikari yang penuh cabaran tetapi bermakna, mengingatkan kita bahawa setiap jalan mati boleh menjadi tempat istirahat sebelum melompat lebih tinggi.',
+        'isbn': '9789672459682',
+        'genre': 'Fiction',
+        'price': 32.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2023',
+
+      },
+      '9789672459415': {
+        'title': 'Empayar 3: Hikayat Saka Keturunan',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789672459415.jpeg',
+        'description': 'Putera Aradhana Sastra, pewaris tunggal Kesultanan Aradhanapura, melarikan diri dari amalan syirik keluarganya demi kehidupan yang tenteram sebagai rakyat biasa. Namun, kemunculan makhluk dari gua yang mengetahui asal-usulnya menggugat rencananya, menyebabkan Putera menjadi buruan atas tuduhan ilmu hitam. Kesultanan goyah tanpa pemerintah, rakyat tertindas oleh puak yang mabuk kuasa, dan tanah keramat dipenuhi kezaliman. Putera Aradhana, yang merasakan jurai keturunannya hanya membawa malang, kini berdepan dilema: terus melarikan diri atau membela tanah airnya dengan darah Jurai Aradhana.',
+        'isbn': '9789672459415',
+        'genre': 'Fiction',
+        'price': 30.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2022',
+
+      },
+      '9789672459224': {
+        'title': 'Kapal Terakhir Di Dunia Episod III',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789672459224.jpeg',
+        'description': 'Setelah melalui keperitan di Aras Lantai, Aria dinaikkan ke Aras Atas dan diiktiraf sebagai Manusia Suci, menerima layanan istimewa. Namun, Aria mula meragui kesempurnaan ini apabila dia mendapati kesenangan Manusia Suci adalah hasil penderitaan orang sepertinya. Dihadapkan dengan kebenaran yang mengejutkan, Aria terpaksa memilih antara kesetiaan kepada Bokor atau menerima realiti yang menyakitkan. Dapatkan naskah terakhir "Kapal Terakhir Di Dunia" untuk mengetahui keputusan Aria dalam menghadapi dilema ini.',
+        'isbn': '9789672459224',
+        'genre': 'Fiction',
+        'price': 27.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2021',
+
+      },
+      '9789672459187': {
+        'title': 'Kapal Terakhir Di Dunia Episod II',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789672459187.jpeg',
+        'description': 'Bokor, kapal gergasi berusia 571 tahun, lumpuh akibat kegagalan sistem. Aria dan beberapa wakil mempertaruhkan nyawa untuk mendapatkan bekalan air bersih dari luar, namun pengalaman itu menjadi mimpi ngeri baginya. Ditambah dengan tuduhan sebagai pembawa bala dan penyakit adiknya yang semakin parah, Aria dihadapkan dengan tawaran bersyarat dari Vanessa: kesembuhan adiknya sebagai pertukaran ketaatan. Kini, Aria berdepan pilihan sukar yang melibatkan peperangan melawan akalnya sendiri.',
+        'isbn': '9789672459187',
+        'genre': 'Fiction',
+        'price': 27.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2021',
+
+      },
+      '9789672459170': {
+        'title': 'Kapal Terakhir Di Dunia',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789672459170.jpeg',
+        'description': 'Bokor, kapal besi gergasi yang melindungi manusia dari bencana hujan tahi bintang...',
+        'isbn': '9789672459170',
+        'genre': 'Fiction',
+        'price': 27.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2021',
+
+      },
+      '9789832423966': {
+        'title': 'Selamat Tinggal Purnama Strain Kedua',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789832423966.jpeg',
+        'description': 'Setelah hilang hampir setahun, Latif Purnama muncul kembali dengan album baru yang ganjil dan membahayakan nyawanya. Menginspirasi oleh kisah tragis selebriti seperti Chester Bennington, Sulli, Avicii, dan lain-lain yang mengakhiri hidup mereka sendiri, Latif cuba menyelami kehidupan mereka untuk memahami mental illness dari sudut yang lebih mendalam, bukan sekadar depresi. Buku ini lahir dari usaha Latif untuk melihat kehidupan dan perjuangan mereka, serta mengubah tanggapannya sepenuhnya tentang isu kesihatan mental.',
+        'isbn': '9789832423966',
+        'genre': 'Fiction',
+        'price': 30.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2020',
+
+      },
+      '9789832423737': {
+        'title': 'Signature Jalanan',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789832423737.jpeg',
+        'description': 'Seorang individu berkongsi perasaan terasing dan kesulitan yang dialaminya dalam pendidikan, merasa dilahirkan bodoh berbanding orang lain. Walaupun berusaha keras, dia menghadapi kesukaran membaca, bertukar-tukar huruf, dan gagap. Ketika berkongsi kisahnya, orang lain tidak percaya dan menganggapnya malas atau memberi alasan, tanpa memahami perjuangannya untuk setara dengan yang lain. Hanya Tuhan yang tahu betapa kerasnya dia berusaha untuk mencapai tahap yang sama seperti orang lain.',
+        'isbn': '9789832423737',
+        'genre': 'Fiction',
+        'price': 33.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2018',
+
+      },
+      '9789832423690': {
+        'title': 'Empayar 2 Hikayat Mukjizat Daripada Iblis',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789832423690.jpeg',
+        'description': 'Empayar 2 Hikayat Mukjizat Daripada Iblis" oleh Teme Abdullah mengisahkan tentang dua hikayat yang menarik dari perspektif Iblis. Buku ini mendedahkan sisi gelap dan kompleks Iblis, mengeksplorasi pemikirannya dan tindakannya dalam mempengaruhi dunia manusia. Dengan gaya naratif yang unik, pembaca dibawa ke dalam dunia yang gelap dan misterius, di mana mukjizat yang dilakukan oleh Iblis membawa konsekuensi yang tidak terduga. Buku ini memberikan pandangan yang berbeza tentang kejahatan dan moraliti, menjadikannya satu bacaan yang merangsang minda dan mendedahkan sisi tak terduga dari kejahatan sejati.',
+        'isbn': '9789832423690',
+        'genre': 'Fiction',
+        'price': 30.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2019',
+
+      },
+      '9789832423294': {
+        'title': 'Pelukis Jalanan',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789832423294.jpeg',
+        'description': '"Pelukis Jalanan" oleh Teme Abdullah mengisahkan kisah seorang seniman jalanan yang melalui perjalanan emosional dan spiritual yang mendalam dalam pencarian identiti dan tujuan hidup. Dalam usahanya untuk melukis kehidupan jalanan, dia berinteraksi dengan pelbagai karakter yang mewakili pelbagai aspek masyarakat. Melalui lukisannya, dia mampu menyampaikan cerita dan perasaan yang mendalam kepada orang ramai. Buku ini menggambarkan kekuatan seni untuk menyatukan dan mengubah kehidupan, serta menginspirasi pembaca untuk menghargai keindahan dalam kehidupan sehari-hari.',
+        'isbn': '9789832423294',
+        'genre': 'Fiction',
+        'price': 25.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2016',
+
+      },
+      '9789832423553': {
+        'title': 'Impian Jalanan',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789832423553.jpeg',
+        'description': 'Impian Jalanan" oleh Teme Abdullah mengisahkan kisah-kisah inspiratif dari kehidupan jalanan yang penuh dengan impian, harapan, dan perjuangan. Melalui sudut pandang yang unik, pembaca dibawa untuk melihat kehidupan dari perspektif mereka yang sering dilupakan. Buku ini merangkumi cerita-cerita tentang kegigihan, ketabahan, dan semangat manusia dalam menghadapi cabaran kehidupan jalanan. Dengan setiap kisah yang disampaikan dengan penuh empati dan kebijaksanaan, pembaca diingatkan bahawa impian dan kejayaan tidak mengenal sempadan sosial atau ekonomi. "Impian Jalanan" memberi sinar harapan kepada pembaca, mengajak mereka untuk merenungkan nilai kehidupan yang sebenarnya.',
+        'isbn': '9789832423553',
+        'genre': 'Fiction',
+        'price': 33.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2018',
+
+      },
+      '9789832423560': {
+        'title': 'Empayar Hikayat Putera Tanpa Nama',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789832423560.jpeg',
+        'description': '"Empayar Hikayat Putera Tanpa Nama" oleh Teme Abdullah menceritakan kisah seorang putera yang dilahirkan tanpa nama dan memulakan perjalanan mencari identiti dan takdirnya. Dalam usahanya untuk mendapatkan pengiktirafan, dia melalui pelbagai ujian dan rintangan, termasuklah pertarungan dengan makhluk-makhluk yang ganas dan penguasa yang zalim. Kisah ini menggambarkan kekuatan keberanian, ketabahan, dan keteguhan hati dalam menghadapi cabaran kehidupan. Dengan alur yang mengasyikkan dan watak-watak yang memukau, novel ini mengajak pembaca untuk menyelami dunia fantasi yang penuh dengan misteri dan petualangan.',
+        'isbn': '9789832423560',
+        'genre': 'Fiction',
+        'price': 33.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2018',
+
+      },
+      '9789832423430': {
+        'title': 'Arkitek Jalanan',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789832423430.jpeg',
+        'description': '"Arkitek Jalanan" oleh Teme Abdullah mengisahkan tentang seorang pemuda yang meneroka dunia seni jalanan dengan penuh semangat dan keberanian. Dia menggunakan seninya untuk menyampaikan mesej tentang kehidupan, harapan, dan impian kepada masyarakat. Dalam perjalanan mencapai impian tersebut, dia menghadapi cabaran dan rintangan yang menguji keazaman dan tekadnya. Melalui kisah yang menginspirasi ini, pembaca diajak untuk merenung tentang kekuatan seni untuk mengubah persekitaran dan menghidupkan semula ruang bandar. "Arkitek Jalanan" bukan sekadar kisah tentang seni jalanan, tetapi juga tentang keberanian untuk mengejar impian dan memberi inspirasi kepada orang lain.',
+        'isbn': '9789832423430',
+        'genre': 'Fiction',
+        'price': 32.00,
+        'publisher' : 'IMAN PUBLICATION',
+        'publicationYear' : '2017',
+
+      },
+      '9789832423959' : {
+        'title': 'Selamat Tinggal Purnama Strain Pertama',
+        'author': 'Teme Abdullah',
+        'image': 'assets/image/9789832423959.jpeg',
+        'description': 'Di zaman manusia perlu mengumpul "kredit" untuk terus hidup, seorang artis terkenal Nusaraya, yang memiliki wajah, suara, personaliti, dan pencapaian luar biasa, menghadapi tuduhan membina persona palsu demi kelangsungan kerjaya, termasuk suara yang dikatakan palsu. Hidupnya berubah drastik setelah gosip itu tersebar. Terinspirasi oleh kisah tragis selebriti seperti Chester Bennington dan lain-lain yang mengakhiri hidup mereka sendiri, buku ini lahir dari usaha memahami kehidupan mereka dan isu mental illness dari sudut lebih mendalam, bukan sekadar depresi.',
+        'isbn': '9789832423959',
+        'genre': 'Fiction',
+        'price': 30.00,
+        'publisher': 'IMAN PUBLICATION',
+        'publicationYear': '2020',
+        }
+    };
+
+    await Future.delayed(Duration(seconds: 2));
+
+    if (responseJson.containsKey(isbn)) {
+      _book = Book.fromJson(responseJson[isbn]!);
+      _book!.reviews = await _loadReviewsFromFile(isbn);
+      notifyListeners();
+    } else {
+      throw Exception('Book not found');
+    }
+  }
+
+  void addBook(Book book) {
+    _books.add(book);
+    notifyListeners();
+  }
+
+  void updateUserRating(double rating) {
+    if (_book != null) {
+      _book!.userRating = rating;
+      notifyListeners();
+    }
+  }
+
+  void addReview(String review, double rating) {
+    if (_book != null) {
+      _book!.reviews.add(Review(text: review, rating: rating));
+      notifyListeners();
+    }
+  }
+
+  double getAverageUserRating() {
+    if (_book != null && _book!.reviews.isNotEmpty) {
+      return _book!.reviews.map((r) => r.rating).reduce((a, b) => a + b) /
+          _book!.reviews.length;
+    }
+    return 0;
+  }
+}
+
+
+Future<List<Review>> _loadReviewsFromFile(String isbn) async {
+  final directory = await getApplicationDocumentsDirectory();
+  final file = File('${directory.path}/$isbn.txt');
+  if (await file.exists()) {
+    final content = await file.readAsString();
+    final List<dynamic> reviewListJson = jsonDecode(content);
+    return reviewListJson.map((json) => Review.fromJson(json)).toList();
+  }
+  return [];
+}
+
+Future<void> _saveReviewsToFile(String isbn, List<Review> reviews) async {
+  final directory = await getApplicationDocumentsDirectory();
+  final file = File('${directory.path}/$isbn.txt');
+  final content =
+  jsonEncode(reviews.map((review) => review.toJson()).toList());
+  await file.writeAsString(content);
+}
+
+class ThemeNotifier with ChangeNotifier {
+  bool _isDarkMode = false;
+
+  bool get isDarkMode => _isDarkMode;
+
+  ThemeData get currentTheme => _isDarkMode ? ThemeData.dark() : ThemeData.light();
+
+  void toggleTheme() {
+    _isDarkMode = !_isDarkMode;
+    notifyListeners();
+  }
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => BookProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeNotifier()),
+      ],
+      child: Consumer<ThemeNotifier>(
+        builder: (context, themeNotifier, child) {
+          return MaterialApp(
+            theme: themeNotifier.currentTheme,
+            home: MyHomePage(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class MyHomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final bookProvider = Provider.of<BookProvider>(context);
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('BIBLIOPHILE REVIEW'),
+        actions: [
+          IconButton(
+            icon: Icon(themeNotifier.isDarkMode ? Icons.wb_sunny : Icons.nights_stay),
+            onPressed: () {
+              themeNotifier.toggleTheme();
+            },
+          ),
+        ],
+      ),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () async {
+            var result = await BarcodeScanner.scan();
+            if (result.type == ResultType.Barcode) {
+              try {
+                await Future.delayed(Duration(milliseconds: 500));
+                await bookProvider.fetchBook(result.rawContent);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => BookDetailsScreen()),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Failed to load book: ${e.toString()}'),
+                ));
+              }
+            }
+          },
+          child: Text('Scan ISBN'),
+        ),
+      ),
+    );
+  }
+}
+
+
+class BookDetailsScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final bookProvider = Provider.of<BookProvider>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Book Details'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (bookProvider.book != null) ...[
+              Center(
+                child: Image.asset(
+                  'assets/image/${bookProvider.book!.isbn}.jpeg',
+                  errorBuilder: (context, error, stackTrace) =>
+                      Text('Image not available'),
+                ),
+              ),
+              SizedBox(height: 20),
+              Center(
+                child: Text(
+                  bookProvider.book!.title,
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              SizedBox(height: 10),
+              Center(child: Text('Author: ${bookProvider.book!.author}')),
+              SizedBox(height: 10),
+              Center(child: Text('Publisher: ${bookProvider.book!.publisher}')),
+              SizedBox(height: 10),
+              Center(child: Text('Year of Publication: ${bookProvider.book!.publicationYear}')),
+              SizedBox(height: 10),
+              Center(child: Text('ISBN: ${bookProvider.book!.isbn}')),
+              SizedBox(height: 10),
+              Center(child: Text('Price (MYR): ${bookProvider.book!.price.toStringAsFixed(2)}')),
+              SizedBox(height: 20),
+              Text(
+                'Synopsis',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10),
+              Text(
+                bookProvider.book!.description,
+                style: TextStyle(fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 20),
+              Center(
+                child: Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => WriteReviewScreen()),
+                        );
+                      },
+                      child: Text('Write Review'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => ReadReviewScreen()),
+                        );
+                      },
+                      child: Text('Read Review'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+class WriteReviewScreen extends StatefulWidget {
+  @override
+  _WriteReviewScreenState createState() => _WriteReviewScreenState();
+}
+
+class _WriteReviewScreenState extends State<WriteReviewScreen> {
+  final _reviewController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final bookProvider = Provider.of<BookProvider>(context);
+
+    return Scaffold(
+        appBar: AppBar(
+          title: Text('Write Review'),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+            Text(
+            'Write Review & Give Rating:',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          YellowRatingBar(
+            initialRating: bookProvider.book!.userRating,
+            onRatingChanged: (rating) {
+              bookProvider.updateUserRating(rating);
+            },
+          ),
+          SizedBox(height: 10),
+          TextField(
+            controller: _reviewController,
+            maxLines: null,
+            keyboardType: TextInputType.multiline,
+            decoration: InputDecoration(
+              hintText: 'Write your review here...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          SizedBox(height: 10),
+          Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+              ElevatedButton(
+              onPressed: () {
+        Navigator.pop(context);
+        },
+          child: Text('Cancel'),
+        ),
+        ElevatedButton(
+        onPressed: () async {
+          if (_reviewController.text.isNotEmpty) {
+            bookProvider.addReview(
+                _reviewController.text, bookProvider.book!.userRating);
+            await _saveReviewsToFile(
+                bookProvider.book!.isbn, bookProvider.book!.reviews);
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Review saved')));
+            Navigator.pop(context);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Review cannot be empty')));
+          }
+        },
+          child: Text('Submit'),
+        ),
+              ],
+          ),
+            ],
+          ),
+        ),
+    );
+
+  }
+}
+
+class ReadReviewScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final bookProvider = Provider.of<BookProvider>(context);
+    final book = bookProvider.book!;
+    final averageRating = bookProvider.getAverageUserRating();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Read Reviews'),
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'Average Rating: ${averageRating.toStringAsFixed(2)}',
+              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 20.0),
+            ListView.builder(
+              shrinkWrap: true,
+              itemCount: book.reviews.length,
+              itemBuilder: (context, index) {
+                final review = book.reviews[index];
+                return Card(
+                  margin: EdgeInsets.symmetric(vertical: 8.0),
+                  child: ListTile(
+                    title: Text(review.text),
+                    subtitle: Row(
+                      children: [
+                        Icon(Icons.star, color: Colors.amber, size: 16.0),
+                        SizedBox(width: 5.0),
+                        Text('${review.rating}'),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class RatingBar extends StatefulWidget {
+  final int maxRating;
+  final double initialRating;
+  final bool ignoreGestures;
+  final void Function(double)? onRatingChanged;
+  final Color color;
+
+  RatingBar({
+    this.maxRating = 5,
+    this.initialRating = 0.0,
+    this.ignoreGestures = false,
+    this.onRatingChanged,
+    this.color = Colors.grey,
+  });
+
+  @override
+  _RatingBarState createState() => _RatingBarState();
+}
+
+class _RatingBarState extends State<RatingBar> {
+  late double _rating;
+
+  @override
+  void initState() {
+    super.initState();
+    _rating = widget.initialRating;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(widget.maxRating, (index) {
+        return IconButton(
+          icon: Icon(
+            Icons.star,
+            color: _rating > index ? widget.color : Colors.grey,
+          ),
+          onPressed: widget.ignoreGestures
+              ? null
+              : () {
+            setState(() {
+              _rating = index + 1.0;
+            });
+            if (widget.onRatingChanged != null) {
+              widget.onRatingChanged!(_rating);
+            }
+          },
+        );
+      }),
+    );
+  }
+}
+
+class YellowRatingBar extends RatingBar {
+  YellowRatingBar({
+    super.maxRating = 5,
+    super.initialRating = 0.0,
+    super.ignoreGestures = false,
+    super.onRatingChanged,
+  }) : super(color: Colors.yellow);
+}
+
